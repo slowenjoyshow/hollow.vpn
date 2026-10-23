@@ -1,77 +1,157 @@
+<div align="center">
+
 # hollow.vpn
 
-Android VPN-клиент: Kotlin + Jetpack Compose, Material 3 (с dynamic color) и стеклянный «liquid glass» UI.
-Протоколы: **VLESS (в т.ч. Reality)**, **VMess**, **Xray (свой JSON)**, **AmneziaWG**, **SOCKS5**.
+**Android-клиент для VLESS, VMess, Trojan, Shadowsocks, SOCKS5 и AmneziaWG.**
+Material You, подписки, пинг серверов и плитка в шторке.
 
-## Что уже готово
+![Android 10+](https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
-- UI: три экрана (Главная / Профили / Настройки), анимированный aurora-фон, liquid glass панели, светящаяся кнопка подключения, плавные переходы
-- Импорт: вставка ссылки или конфига, **подписка по `https://`** (base64 и обычный список), **импорт из файла** (`.conf`, `.json`, `.txt`)
-- Парсинг `vless://…`, `vmess://…`, `socks5://…`, JSON Xray и конфигов AmneziaWG (`[Interface]`/`[Peer]`), в том числе несколько профилей за раз
-- Генерация конфига Xray для VLESS/VMess (tcp / ws / grpc / h2 / httpupgrade / xhttp, TLS и Reality)
-- Настройки: тема (авто/тёмная/светлая), акцентный цвет / Material You, размытие и тонировка стекла, скорость анимаций и отключение живого фона
-- `VpnService` (foreground), хранение профилей и настроек в DataStore, состояние подключения, таймер и счётчики трафика
+</div>
 
-## Что нового в 0.5.0
+<p align="center">
+  <img src="docs/home.png" width="23%" alt="Главный экран" />
+  <img src="docs/stats.png" width="23%" alt="Статистика трафика" />
+  <img src="docs/servers.png" width="23%" alt="Список серверов" />
+  <img src="docs/settings.png" width="23%" alt="Настройки" />
+</p>
 
-- Название hollow.vpn, иконка из вашей картинки, тема Hollow (чёрный и малиновый) по умолчанию.
-- «Жидкое стекло» убрано: обычные карточки Material 3. Кастомизация: акцент, свой оттенок, AMOLED, скругление, фон.
-- Блок «Соединение» убран: DNS, MTU, IPv6 и обход локальной сети приложение выбирает само.
-- AmneziaWG 2.0 (диапазоны H1–H4, S3/S4, I1–I5): библиотека заменена на официальную, нужен `scripts/build-awg.sh`.
-- Импорт: trojan://, ss://, JSON-подписки (массив конфигов), параметры VLESS `encryption` и XHTTP `mode/extra`.
-  Неподдерживаемые протоколы (hysteria2, tuic, wireguard://) не теряются молча: приложение пишет, сколько пропущено.
-- Серверы сгруппированы по подпискам (сворачиваются), у каждой подписки есть корзина.
+## О проекте
 
-## Что нового в 0.3.0
+hollow.vpn: приложение, в котором не нужно разбираться в конфигах. Вставляешь ссылку, подписку или файл, выбираешь сервер с лучшим пингом и нажимаешь одну кнопку.
 
-- **«app not supported» при импорте подписки**: панель отклоняла User-Agent `GlassVPN/0.2`. Теперь клиент представляется как v2rayNG/Happ/v2RayTun (выбор в Настройки → Подписки) и сам перебирает остальные, пока ответ не распарсится.
-- Material You: свой оттенок (ползунок hue), чёрный AMOLED, скругление углов.
-- Соединение: DNS, MTU, IPv6, обход локальной сети (без geoip.dat), policy-таймауты Xray.
+Внутри работают проверенные ядра: официальный [Xray-core](https://github.com/XTLS/Xray-core), [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) и [amneziawg-android](https://github.com/amnezia-vpn/amneziawg-android). Само приложение отвечает за импорт, интерфейс и управление туннелем.
 
-## Нативные ядра: статус
+## Возможности
 
-| Протокол | Статус |
+**Протоколы**
+
+| Протокол | Детали |
 |---|---|
-| SOCKS5 | работает через hev-socks5-tunnel (готовый AAR, `scripts/fetch-natives.sh`) |
-| AmneziaWG (в т.ч. 2.0) | официальный `amnezia-vpn/amneziawg-android`, собирается `scripts/build-awg.sh` в `app/libs/amneziawg-tunnel.aar` (вызовы через рефлексию, см. `vpn/AwgBackend.kt`) |
-| VLESS / VMess / Xray | официальный бинарник Xray-core запускается отдельным процессом (`XrayCore` в `vpn/Engines.kt`), трафик в него заворачивает hev-socks5-tunnel |
+| VLESS | в том числе Reality; транспорты tcp, ws, grpc, h2, httpupgrade, xhttp; TLS |
+| VMess | те же транспорты |
+| Trojan | импорт по `trojan://` |
+| Shadowsocks | импорт по `ss://` |
+| SOCKS5 | напрямую через свой прокси |
+| AmneziaWG | включая 2.0 (диапазоны H1–H4, S3/S4, I1–I5) |
+| Xray JSON | свой конфиг целиком |
 
-Перед локальной сборкой один раз выполни `./scripts/build-awg.sh` (AmneziaWG, долго: качается Go) и `./scripts/fetch-natives.sh` (в GitHub Actions это уже встроено): он скачивает hev-socks5-tunnel.aar и Xray-core для arm64-v8a и x86_64. Нужны `curl` и `unzip`.
+**Импорт**
 
-## Что нужно подключить (нативные ядра) — устаревшее описание
+- Ссылки `vless://`, `vmess://`, `trojan://`, `ss://`, `socks5://`
+- Конфиги Xray (JSON) и AmneziaWG (`[Interface]` / `[Peer]`)
+- Ключи и файлы AmneziaVPN (`vpn://`, `.vpn`) для контейнеров AmneziaWG/WireGuard и Xray
+- Подписки по `https://`: base64, обычный список и JSON-массив конфигов
+- Файлы `.conf`, `.json`, `.txt`
+- Несколько профилей за один импорт
+- Если в подписке есть неподдерживаемые протоколы (hysteria2, tuic, wireguard:// и другие), приложение скажет, сколько записей пропущено, а не потеряет их молча
 
-Я не мог скачать и собрать нативные библиотеки в своей среде, поэтому в местах `TODO(native)` (файл `vpn/Engines.kt`) стоят заглушки.
-Пока ядра не подключены, нажатие на кнопку покажет ошибку «Подключи …». Это ожидаемо.
+**Подписки**
 
-| Протокол | Что подключить | Где править |
-|---|---|---|
-| VLESS / Xray | [XTLS/libXray](https://github.com/XTLS/libXray) → собрать `.aar` через gomobile, положить в `app/libs/` | `XrayEngine` |
-| VLESS / Xray / SOCKS5 | [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) (tun2socks, TUN fd → SOCKS5) | `TunBridge` |
-| AmneziaWG | [amnezia-vpn/amneziawg-android](https://github.com/amnezia-vpn/amneziawg-android) (модуль `tunnel`) | `AwgEngine` |
+- Серверы сгруппированы по подпискам, группы сворачиваются
+- Автообновление по интервалу, который задаёт панель (заголовок `profile-update-interval`)
+- Если панель отклоняет приложение («app not supported»), можно выбрать, кем представляться: v2rayNG, Happ или v2RayTun. Клиент также сам перебирает варианты, пока ответ не распарсится
 
-Затем раскомментируй зависимости в конце `app/build.gradle.kts` и замени `TODO(native)` реальными вызовами.
-Сигнатуры API у этих библиотек меняются между релизами, поэтому в коде оставлены наброски, а не жёсткие вызовы: сверяйся с README выбранной версии.
+**Серверы и подключение**
 
-Схема работы:
+- TCP-пинг до каждого сервера, сортировка по пингу, кнопка «Лучший сервер», автопроверка при открытии списка (для AmneziaWG по UDP пинг недоступен)
+- Задержка через туннель: реальный запрос в интернет через выбранный сервер
+- Таймер сессии, счётчики трафика и график скорости за минуту
+- Плитка быстрых настроек: включить и выключить VPN из шторки
+- Приложение само выбирает DNS, MTU, IPv6 и обход локальной сети
+
+**Оформление**
+
+- Material You: цвета из обоев (Android 12+) или готовые палитры
+- Тема: авто, тёмная, светлая; режим AMOLED
+- Свой оттенок, скругление углов, размер текста
+- Фирменная тема Hollow (чёрный и малиновый)
+- Анимации и фон можно отключить, вибрация настраивается
+- Предиктивный жест «назад»
+
+## Как это работает
 
 ```
-VLESS/Xray:  телефон → TUN → hev-socks5-tunnel → Xray (127.0.0.1:10808) → сервер
-SOCKS5:      телефон → TUN → hev-socks5-tunnel → твой SOCKS5-прокси
-AmneziaWG:   телефон → amneziawg-android (свой VpnService внутри библиотеки) → сервер
+VLESS / VMess / Trojan / SS / Xray:
+  телефон → TUN → hev-socks5-tunnel → Xray (127.0.0.1:10808) → сервер
+
+SOCKS5:
+  телефон → TUN → hev-socks5-tunnel → твой SOCKS5-прокси
+
+AmneziaWG:
+  телефон → amneziawg-android (свой VpnService внутри библиотеки) → сервер
 ```
+
+Xray запускается отдельным процессом из официального бинарника. Это исключает конфликт Go-рантаймов с AmneziaWG. Сам клиент исключён из туннеля, поэтому его собственные запросы (подписки, пинг) идут напрямую.
 
 ## Сборка
 
-1. Открой папку `glassvpn` в Android Studio (Ladybug или новее), дождись Gradle Sync (wrapper создастся сам).
-2. Проверь версию `dev.chrisbanes.haze` в `app/build.gradle.kts`: в Glass.kt используются `hazeSource` / `hazeEffect` (Haze 1.2+). При другой версии имена API могут отличаться.
-3. Run на устройстве или эмуляторе (minSdk 26).
+Нативные ядра в репозиторий не входят, их нужно получить скриптами.
 
-## Про «liquid glass»
+**Требования:** Android Studio Ladybug или новее, JDK 17, Android SDK, `curl`, `unzip`. Для AmneziaWG дополнительно `git`, `make`, `flock` и интернет (скачивается Go-тулчейн).
 
-Реализован на Haze: размытие фона под элементом + светлая подложка + градиентная кромка-блик.
-Это приближение, а не настоящая рефракция, как в iOS 26. Настоящее преломление можно добавить через AGSL `RuntimeShader` (Android 13+), как следующий шаг.
+```bash
+git clone https://github.com/<your-username>/hollow.vpn.git
+cd hollow.vpn
 
-## Ограничения
+# 1. hev-socks5-tunnel (AAR) и Xray-core для arm64-v8a и x86_64
+./scripts/fetch-natives.sh
 
-- Подписка загружается один раз при импорте; автообновления и хранения subscription URL пока нет
-- Нет per-app split tunneling и правил маршрутизации — логичные следующие шаги
+# 2. AmneziaWG: собирается долго, нужен один раз
+./scripts/build-awg.sh
+```
+
+После этого откройте проект в Android Studio, дождитесь Gradle Sync и запустите на устройстве или эмуляторе.
+
+Что делает каждый скрипт:
+
+| Скрипт | Результат |
+|---|---|
+| `scripts/fetch-natives.sh` | `app/libs/hev-socks5-tunnel.aar`, `app/src/main/jniLibs/<abi>/libxray.so`, `geoip.dat` и `geosite.dat` |
+| `scripts/build-awg.sh` | `app/libs/amneziawg-tunnel.aar` (версию можно задать через `AWG_TAG`) |
+
+Без `fetch-natives.sh` приложение соберётся, но подключиться не сможет: при нажатии на кнопку оно сообщит, что не найдены ядра. Без `build-awg.sh` не будет работать только AmneziaWG.
+
+Поддерживаемые архитектуры: `arm64-v8a` и `x86_64`.
+
+## Стек
+
+- Kotlin 2.0, Jetpack Compose, Material 3
+- Navigation Compose, ViewModel, Coroutines
+- DataStore для профилей и настроек
+- kotlinx.serialization
+- minSdk 29, targetSdk 35
+
+## Структура проекта
+
+```
+app/src/main/java/app/glassvpn/
+├── model/    парсеры ссылок и подписок, импорт Amnezia, генерация конфига Xray, пинг, хранилище
+├── ui/       экраны (Главная, Профили, Настройки), тема, компоненты
+├── vpn/      VpnService, движки (Xray, AmneziaWG, SOCKS5), плитка быстрых настроек
+└── MainActivity.kt
+scripts/      сборка и загрузка нативных ядер
+```
+
+## Ограничения и планы
+
+- Нет раздельного туннелирования по приложениям и правил маршрутизации
+- Из ключей AmneziaVPN пока не импортируются контейнеры OpenVPN, Cloak и Shadowsocks
+- Hysteria2, TUIC и «чистый» WireGuard не поддерживаются
+
+## Конфиденциальность
+
+Приложение запрашивает только разрешения, нужные VPN-клиенту: интернет, состояние сети, foreground-сервис и уведомления. Резервное копирование данных приложения отключено (`allowBackup=false`).
+
+## Лицензия
+
+Распространяется по лицензии [Apache 2.0](LICENSE).
+
+## Благодарности
+
+- [XTLS/Xray-core](https://github.com/XTLS/Xray-core)
+- [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)
+- [amnezia-vpn/amneziawg-android](https://github.com/amnezia-vpn/amneziawg-android)
