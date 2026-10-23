@@ -7,3 +7,7 @@ build/
 app/libs/*.aar
 app/src/main/jniLibs/
 app/src/main/assets/xray/
+
+# Hidden project files
+.github/workflows/
+.kotlin/errors/
