@@ -1,0 +1,9 @@
+.gradle/
+.idea/
+local.properties
+build/
+*.iml
+.DS_Store
+app/libs/*.aar
+app/src/main/jniLibs/
+app/src/main/assets/xray/

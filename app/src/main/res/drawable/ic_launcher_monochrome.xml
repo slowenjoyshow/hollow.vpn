@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Монохромный слой адаптивной иконки (тематические иконки Android 13+):
+     глиф-щит вписан в безопасную зону 66dp из 108dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="24"
+        android:translateY="24"
+        android:scaleX="2.5"
+        android:scaleY="2.5">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M12,2 L20,5.2 L20,11 C20,15.9 16.6,20.2 12,22 C7.4,20.2 4,15.9 4,11 L4,5.2 Z
+                M9.09,9.36 A3.8,3.8 0 1 0 14.91,9.36 L13.69,10.39 A2.2,2.2 0 1 1 10.31,10.39 Z
+                M12,9.6 A2.2,2.2 0 1 0 12,14 A2.2,2.2 0 1 0 12,9.6 Z
+                M10.95,7.1 L13.05,7.1 L13.05,12.3 L10.95,12.3 Z" />
+    </group>
+</vector>
