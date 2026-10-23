@@ -2,7 +2,6 @@ package app.glassvpn.ui.theme
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,13 +14,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.dp
 import app.glassvpn.model.AppSettings
 import app.glassvpn.model.BackgroundStyle
 
 val LocalAppSettings = staticCompositionLocalOf { AppSettings() }
 
-/** Фон приложения: однотонный или с мягким свечением акцентного цвета сверху. Без размытия и анимаций. */
+/** Фон приложения: однотонный или с мягким свечением контейнерного цвета сверху. */
 @Composable
 fun AppBackground(content: @Composable BoxScope.() -> Unit) {
     val cs = MaterialTheme.colorScheme
@@ -31,9 +29,9 @@ fun AppBackground(content: @Composable BoxScope.() -> Unit) {
             Canvas(Modifier.fillMaxSize()) {
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(cs.primary.copy(alpha = 0.20f), Color.Transparent),
+                        colors = listOf(cs.primaryContainer.copy(alpha = 0.55f), Color.Transparent),
                         center = Offset(size.width * 0.5f, 0f),
-                        radius = size.width * 1.15f,
+                        radius = size.width * 1.2f,
                     )
                 )
             }
@@ -42,12 +40,9 @@ fun AppBackground(content: @Composable BoxScope.() -> Unit) {
     }
 }
 
-/** Обычная карточка Material 3: тональная заливка и тонкая рамка. Скругление берётся из темы. */
+/** Тональная карточка Material You: заливка surfaceContainer без рамки. Скругление берётся из темы. */
 @Composable
-fun Modifier.panel(shape: Shape = MaterialTheme.shapes.extraLarge): Modifier {
-    val cs = MaterialTheme.colorScheme
-    return this
-        .clip(shape)
-        .background(cs.surfaceVariant.copy(alpha = 0.55f), shape)
-        .border(1.dp, cs.outline.copy(alpha = 0.35f), shape)
-}
+fun Modifier.panel(
+    shape: Shape = MaterialTheme.shapes.large,
+    container: Color = MaterialTheme.colorScheme.surfaceContainer,
+): Modifier = this.clip(shape).background(container, shape)

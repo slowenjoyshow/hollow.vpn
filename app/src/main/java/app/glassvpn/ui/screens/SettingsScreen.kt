@@ -1,5 +1,6 @@
 package app.glassvpn.ui.screens
 
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,22 +24,20 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ColorLens
-import androidx.compose.material.icons.filled.Contrast
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -48,7 +47,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.glassvpn.model.Accent
@@ -56,112 +54,160 @@ import app.glassvpn.model.BackgroundStyle
 import app.glassvpn.model.SubUserAgent
 import app.glassvpn.model.ThemeMode
 import app.glassvpn.ui.MainViewModel
-import app.glassvpn.ui.theme.panel
+import app.glassvpn.ui.theme.hueSeed
 import app.glassvpn.ui.theme.swatch
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
     val settings by vm.settings.collectAsState()
     val cs = MaterialTheme.colorScheme
+    val dynamicAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val dynamicOn = settings.accent == Accent.Dynamic && dynamicAvailable
 
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .statusBarsPadding()
-            .padding(horizontal = 24.dp)
-            .padding(top = 18.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = 20.dp)
+            .padding(top = 16.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text("Настройки", style = MaterialTheme.typography.headlineMedium, color = cs.onSurface)
-        Text(
-            "Сделай интерфейс под себя — изменения применяются сразу",
-            style = MaterialTheme.typography.bodySmall,
-            color = cs.onSurface.copy(alpha = 0.55f),
-        )
-
-        SectionCard("Тема", "Светлая, тёмная или как в системе", Icons.Filled.Contrast) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ThemeMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = settings.themeMode == mode,
-                        onClick = { vm.updateSettings { it.copy(themeMode = mode) } },
-                        label = {
-                            Text(
-                                when (mode) {
-                                    ThemeMode.System -> "Авто"
-                                    ThemeMode.Dark -> "Тёмная"
-                                    ThemeMode.Light -> "Светлая"
-                                }
-                            )
-                        },
-                    )
-                }
-            }
+        Column {
+            Text("Настройки", style = MaterialTheme.typography.headlineMedium, color = cs.onSurface)
+            Text(
+                "Всё применяется сразу",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurfaceVariant,
+            )
         }
 
-        SectionCard("Акцент", "Основной цвет интерфейса", Icons.Filled.Palette) {
-            Accent.entries.chunked(5).forEach { rowItems ->
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    rowItems.forEach { accent ->
-                        AccentSwatch(
-                            accent = accent,
-                            selected = settings.accent == accent,
-                            onClick = { vm.updateSettings { it.copy(accent = accent) } },
+        // ---------- превью палитры ----------
+        PalettePreview()
+
+        Section("Тема") {
+            val modes = ThemeMode.entries
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                modes.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = settings.themeMode == mode,
+                        onClick = { vm.updateSettings { it.copy(themeMode = mode) } },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                    ) {
+                        Text(
+                            when (mode) {
+                                ThemeMode.System -> "Авто"
+                                ThemeMode.Dark -> "Тёмная"
+                                ThemeMode.Light -> "Светлая"
+                            }
                         )
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                accentName(settings.accent),
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurface.copy(alpha = 0.65f),
-            )
         }
 
-        if (settings.accent == Accent.Custom) {
-            SectionCard("Свой оттенок", "Material You из одного цвета", Icons.Filled.Palette) {
-                SettingSlider(
-                    label = "Оттенок",
-                    valueLabel = "${settings.customHue.toInt()}°",
-                    value = settings.customHue,
-                    range = 0f..360f,
-                ) { v -> vm.updateSettings { it.copy(customHue = v) } }
+        Section("Цвета") {
+            if (dynamicAvailable) {
+                SwitchRow(
+                    title = "Цвета из обоев",
+                    subtitle = "Material You: палитра подстраивается под обои телефона",
+                    checked = dynamicOn,
+                ) { on -> vm.updateSettings { it.copy(accent = if (on) Accent.Dynamic else Accent.Hollow) } }
             }
-        }
-
-        SectionCard("Фон", "Однотонный или с мягким свечением", Icons.Filled.Palette) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BackgroundStyle.entries.forEach { st ->
-                    FilterChip(
-                        selected = settings.bgStyle == st,
-                        onClick = { vm.updateSettings { it.copy(bgStyle = st) } },
-                        label = { Text(if (st == BackgroundStyle.Solid) "Однотонный" else "Свечение") },
-                    )
+            AnimatedVisibility(visible = !dynamicOn) {
+                Column {
+                    if (dynamicAvailable) Spacer(Modifier.height(14.dp))
+                    Text("Палитра", style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    val choices = Accent.entries.filter { it != Accent.Dynamic }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        choices.take(4).forEach { a ->
+                            AccentSwatch(a, settings.accent == a, settings.customHue) { vm.updateSettings { s -> s.copy(accent = a) } }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        choices.drop(4).forEach { a ->
+                            AccentSwatch(a, settings.accent == a, settings.customHue) { vm.updateSettings { s -> s.copy(accent = a) } }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(accentName(settings.accent), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                }
+            }
+            AnimatedVisibility(visible = !dynamicOn && settings.accent == Accent.Custom) {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    SettingSlider(
+                        label = "Оттенок",
+                        valueLabel = "${settings.customHue.toInt()}°",
+                        value = settings.customHue,
+                        range = 0f..360f,
+                    ) { v -> vm.updateSettings { it.copy(customHue = v) } }
                 }
             }
         }
 
-        SectionCard("Оформление", "AMOLED и скругления", Icons.Filled.Contrast) {
-            ToggleRow("Чёрный AMOLED", "Чистый чёрный фон в тёмной теме", settings.amoled) { on ->
+        Section("Оформление") {
+            SwitchRow("Чёрный AMOLED", "Чистый чёрный фон в тёмной теме", settings.amoled) { on ->
                 vm.updateSettings { it.copy(amoled = on) }
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(14.dp))
+            Text("Фон", style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            val styles = BackgroundStyle.entries
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                styles.forEachIndexed { index, st ->
+                    SegmentedButton(
+                        selected = settings.bgStyle == st,
+                        onClick = { vm.updateSettings { it.copy(bgStyle = st) } },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = styles.size),
+                    ) { Text(if (st == BackgroundStyle.Solid) "Однотонный" else "Свечение") }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
             SettingSlider(
                 label = "Скругление углов",
                 valueLabel = String.format(Locale.US, "%.1f×", settings.cornerScale),
                 value = settings.cornerScale,
                 range = 0.4f..1.6f,
             ) { v -> vm.updateSettings { it.copy(cornerScale = v) } }
+            SettingSlider(
+                label = "Размер текста",
+                valueLabel = String.format(Locale.US, "%d%%", (settings.textScale * 100).toInt()),
+                value = settings.textScale,
+                range = 0.85f..1.3f,
+            ) { v -> vm.updateSettings { it.copy(textScale = v) } }
+            Spacer(Modifier.height(4.dp))
+            SwitchRow("Вибрация", "Отклик при подключении и переключении вкладок", settings.haptics) { on ->
+                vm.updateSettings { it.copy(haptics = on) }
+            }
         }
 
-        SectionCard("Подписки", "Если сервер пишет «app not supported»", Icons.Filled.Link) {
+        Section("Серверы") {
+            SwitchRow(
+                "Проверять пинг при открытии",
+                "TCP-пинг до каждого сервера, чтобы сразу видеть лучший",
+                settings.autoPing,
+            ) { on -> vm.updateSettings { it.copy(autoPing = on) } }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Пинг показывает время установки соединения с сервером. Для AmneziaWG (UDP) он недоступен. " +
+                    "При включённом VPN в карточке на главной дополнительно измеряется реальная задержка через туннель.",
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+        }
+
+        Section("Подписки") {
+            Text(
+                "Если сервер пишет «app not supported», выбери другой клиент. Остальные пробуются автоматически.",
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SubUserAgent.entries.forEach { ua ->
                     FilterChip(
@@ -181,74 +227,85 @@ fun SettingsScreen(vm: MainViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 "HWID устройства: ${vm.hwid}",
                 style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurface.copy(alpha = 0.75f),
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Остальные клиенты пробуются автоматически, если выбранный отклонён.",
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurface.copy(alpha = 0.55f),
+                color = cs.onSurface,
             )
         }
 
-        Row(
-            Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                "hollow.vpn 0.5.0",
-                style = MaterialTheme.typography.labelSmall,
-                color = cs.onSurface.copy(alpha = 0.4f),
-            )
-        }
+        Text(
+            "hollow.vpn 0.6.0",
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.labelSmall,
+            color = cs.onSurfaceVariant.copy(alpha = 0.7f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 
+/** Полоска с основными цветами текущей схемы: сразу видно, что получилось. */
 @Composable
-private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun PalettePreview() {
     val cs = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurface.copy(alpha = 0.55f))
-        }
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-@Composable
-private fun SectionCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
-            .panel(MaterialTheme.shapes.large)
-            .padding(18.dp),
+            .clip(MaterialTheme.shapes.extraLarge)
+            .background(cs.surfaceContainerHigh)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(36.dp).clip(CircleShape).background(cs.primary.copy(alpha = 0.14f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, null, Modifier.size(19.dp), tint = cs.primary)
-            }
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurface.copy(alpha = 0.5f))
-            }
+        listOf(
+            cs.primary, cs.primaryContainer, cs.secondary, cs.secondaryContainer, cs.tertiary, cs.tertiaryContainer,
+        ).forEach { c ->
+            Box(Modifier.weight(1f).height(44.dp).clip(MaterialTheme.shapes.medium).background(c))
         }
-        Spacer(Modifier.height(14.dp))
-        content()
+    }
+}
+
+@Composable
+private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Column {
+        Text(
+            title,
+            modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
+            style = MaterialTheme.typography.titleSmall,
+            color = cs.primary,
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(cs.surfaceContainer)
+                .padding(18.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clickable { onChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            thumbContent = if (checked) {
+                { Icon(Icons.Filled.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
+            } else null,
+        )
     }
 }
 
@@ -263,7 +320,7 @@ private fun SettingSlider(
     val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = cs.onSurface.copy(alpha = 0.75f))
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = cs.onSurface)
             Text(
                 valueLabel,
                 style = MaterialTheme.typography.bodyMedium,
@@ -280,30 +337,26 @@ private fun SettingSlider(
 }
 
 @Composable
-private fun AccentSwatch(accent: Accent, selected: Boolean, onClick: () -> Unit) {
+private fun AccentSwatch(accent: Accent, selected: Boolean, customHue: Float, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    val brush = if (accent == Accent.Dynamic || accent == Accent.Custom) {
+    val brush = if (accent == Accent.Custom) {
         Brush.sweepGradient(
             listOf(
-                Color(0xFFFF6B6B),
-                Color(0xFFFFD93D),
-                Color(0xFF6BCB77),
-                Color(0xFF4D96FF),
-                Color(0xFF9B5DE5),
-                Color(0xFFFF6B6B),
+                Color(0xFFFF6B6B), Color(0xFFFFD93D), Color(0xFF6BCB77),
+                Color(0xFF4D96FF), Color(0xFF9B5DE5), Color(0xFFFF6B6B),
             )
         )
     } else {
         Brush.linearGradient(listOf(accent.swatch, accent.swatch))
     }
-    val ring = if (selected) cs.onSurface else Color.Transparent
+    val checkTint = if (accent == Accent.Custom) hueSeed(customHue) else Color.White
 
     Box(
         Modifier
-            .size(32.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(brush)
-            .border(2.5.dp, ring, CircleShape)
+            .border(if (selected) 3.dp else 0.dp, if (selected) cs.onSurface else Color.Transparent, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -312,18 +365,13 @@ private fun AccentSwatch(accent: Accent, selected: Boolean, onClick: () -> Unit)
             enter = fadeIn() + scaleIn(initialScale = 0.6f),
             exit = fadeOut() + scaleOut(targetScale = 0.6f),
         ) {
-            Icon(
-                Icons.Filled.Check,
-                accentName(accent),
-                Modifier.size(18.dp),
-                tint = if (accent == Accent.Dynamic || accent == Accent.Custom) Color.White else Color(0xFF08101F),
-            )
+            Icon(Icons.Filled.Check, accentName(accent), Modifier.size(22.dp), tint = if (accent == Accent.Custom) Color.White else checkTint)
         }
     }
 }
 
 private fun accentName(accent: Accent): String = when (accent) {
-    Accent.Dynamic -> "Динамический (Material You)"
+    Accent.Dynamic -> "Из обоев (Material You)"
     Accent.Ocean -> "Океан"
     Accent.Violet -> "Фиалка"
     Accent.Emerald -> "Изумруд"

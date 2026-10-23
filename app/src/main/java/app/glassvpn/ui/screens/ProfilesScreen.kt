@@ -48,7 +48,13 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material.icons.filled.Speed
+import app.glassvpn.model.PingResult
+import app.glassvpn.ui.PingChip
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -101,6 +107,14 @@ fun ProfilesScreen(vm: MainViewModel) {
     val refreshing by vm.refreshing.collectAsState()
     var sheet by remember { mutableStateOf(false) }
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
+    val pings by vm.pings.collectAsState()
+    val settings by vm.settings.collectAsState()
+    LaunchedEffect(settings.autoPing, profiles.size) {
+        if (settings.autoPing) {
+            val missing = profiles.filter { pings[it.id] == null }
+            if (missing.isNotEmpty()) vm.pingMany(missing)
+        }
+    }
     val cs = MaterialTheme.colorScheme
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -114,12 +128,17 @@ fun ProfilesScreen(vm: MainViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Профили", style = MaterialTheme.typography.headlineMedium, color = cs.onSurface)
+                    Text("Серверы", style = MaterialTheme.typography.headlineMedium, color = cs.onSurface)
                     Text(
                         if (profiles.isEmpty()) "Нет сохранённых конфигураций" else "${profiles.size} конфигураций",
                         style = MaterialTheme.typography.bodySmall,
-                        color = cs.onSurface.copy(alpha = 0.55f),
+                        color = cs.onSurfaceVariant,
                     )
+                }
+                if (profiles.isNotEmpty()) {
+                    IconButton(onClick = { vm.pingAll() }) {
+                        Icon(Icons.Filled.Speed, "Проверить пинг", tint = cs.primary)
+                    }
                 }
                 if (subs.isNotEmpty()) {
                     if (refreshing) {
@@ -132,6 +151,25 @@ fun ProfilesScreen(vm: MainViewModel) {
                 }
             }
 
+            if (profiles.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = settings.sortByPing,
+                        onClick = { vm.updateSettings { it.copy(sortByPing = !it.sortByPing) } },
+                        label = { Text("По пингу") },
+                        leadingIcon = { Icon(Icons.Filled.Speed, null, Modifier.size(18.dp)) },
+                    )
+                    AssistChip(
+                        onClick = { vm.pickBest() },
+                        label = { Text("Лучший сервер") },
+                        leadingIcon = { Icon(Icons.Filled.Bolt, null, Modifier.size(18.dp)) },
+                    )
+                }
+            }
+
             if (importState is ImportState.Done || importState is ImportState.Failed) {
                 ImportStatus(importState)
                 Spacer(Modifier.height(10.dp))
@@ -141,12 +179,15 @@ fun ProfilesScreen(vm: MainViewModel) {
                 EmptyProfiles(Modifier.fillMaxWidth().weight(1f))
             } else {
                 val subIds = subs.flatMap { it.profileIds }.toSet()
+                val order: (List<Profile>) -> List<Profile> = { list ->
+                    if (settings.sortByPing) list.sortedBy { (pings[it.id] as? PingResult.Ok)?.ms ?: Int.MAX_VALUE } else list
+                }
                 val groups = buildList {
                     subs.forEach { sub ->
-                        add(ProfileGroup(sub.id, sub.name, sub.announce, profiles.filter { it.id in sub.profileIds }, true))
+                        add(ProfileGroup(sub.id, sub.name, sub.announce, order(profiles.filter { it.id in sub.profileIds }), true))
                     }
                     val own = profiles.filter { it.id !in subIds }
-                    if (own.isNotEmpty()) add(ProfileGroup("own", "Мои конфиги", "", own, false))
+                    if (own.isNotEmpty()) add(ProfileGroup("own", "Мои конфиги", "", order(own), false))
                 }.filter { it.items.isNotEmpty() || it.isSub }
 
                 LazyColumn(
@@ -165,6 +206,7 @@ fun ProfilesScreen(vm: MainViewModel) {
                                     note = g.note,
                                     expanded = open,
                                     onToggle = { collapsed[g.id] = open },
+                                    onPing = { vm.pingMany(g.items) },
                                     onDelete = if (g.isSub) ({ vm.removeSubscription(g.id) }) else null,
                                     modifier = Modifier.animateItem(),
                                 )
@@ -175,7 +217,9 @@ fun ProfilesScreen(vm: MainViewModel) {
                                 ProfileRow(
                                     profile = p,
                                     selected = p.id == selected,
+                                    ping = pings[p.id],
                                     onSelect = { vm.select(p.id) },
+                                    onPing = { vm.pingProfile(p) },
                                     onDelete = { vm.remove(p.id) },
                                     modifier = Modifier.animateItem(),
                                 )
@@ -192,8 +236,8 @@ fun ProfilesScreen(vm: MainViewModel) {
                 sheet = true
             },
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 20.dp),
-            containerColor = cs.primary.copy(alpha = 0.92f),
-            contentColor = cs.onPrimary,
+            containerColor = cs.primaryContainer,
+            contentColor = cs.onPrimaryContainer,
             icon = { Icon(Icons.Filled.Add, null) },
             text = { Text("Добавить") },
         )
@@ -229,6 +273,7 @@ private fun GroupHeader(
     note: String,
     expanded: Boolean,
     onToggle: () -> Unit,
+    onPing: () -> Unit,
     onDelete: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -256,6 +301,9 @@ private fun GroupHeader(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+        IconButton(onClick = onPing) {
+            Icon(Icons.Filled.Speed, "Проверить пинг группы", tint = cs.primary)
         }
         if (onDelete != null) {
             IconButton(onClick = onDelete) {
@@ -295,46 +343,61 @@ private fun EmptyProfiles(modifier: Modifier = Modifier) {
 private fun ProfileRow(
     profile: Profile,
     selected: Boolean,
+    ping: PingResult?,
     onSelect: () -> Unit,
+    onPing: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
     val shape = MaterialTheme.shapes.large
     val tint = protocolColor(profile)
-    val ring by animateColorAsState(
-        if (selected) cs.primary.copy(alpha = 0.55f) else Color.Transparent,
-        label = "profileRing",
+    val container by animateColorAsState(
+        if (selected) cs.secondaryContainer else cs.surfaceContainer,
+        label = "rowBg",
     )
+    val onContainer = if (selected) cs.onSecondaryContainer else cs.onSurface
 
     Row(
         modifier
             .fillMaxWidth()
-            .panel(shape)
-            .border(1.5.dp, ring, shape)
+            .clip(shape)
+            .background(container)
             .clickable(onClick = onSelect)
-            .padding(14.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(46.dp).clip(CircleShape).background(tint.copy(alpha = 0.15f)),
+            Modifier.size(44.dp).clip(CircleShape).background(tint.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(protocolIcon(profile), null, Modifier.size(23.dp), tint = tint)
+            Icon(protocolIcon(profile), null, Modifier.size(22.dp), tint = tint)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(profile.name, style = MaterialTheme.typography.titleMedium, color = cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(2.dp))
+            Text(
+                profile.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = onContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 "${profile.protocolLabel} · ${profileDetail(profile)}",
                 style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurface.copy(alpha = 0.55f),
+                color = onContainer.copy(alpha = 0.7f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        RadioButton(selected = selected, onClick = onSelect)
+        Spacer(Modifier.width(8.dp))
+        PingChip(ping, onClick = onPing)
+        if (selected) {
+            Icon(
+                Icons.Filled.CheckCircle, "Выбран", tint = cs.primary,
+                modifier = Modifier.padding(start = 6.dp).size(22.dp),
+            )
+        }
         IconButton(onClick = onDelete) {
             Icon(Icons.Filled.Delete, "Удалить", tint = cs.error.copy(alpha = 0.85f))
         }

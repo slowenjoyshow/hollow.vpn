@@ -1,5 +1,13 @@
 package app.glassvpn.ui
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import app.glassvpn.model.PingResult
+import app.glassvpn.model.Pinger
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -85,6 +93,50 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         addProfiles(trimmed, source)
+    }
+
+    // ---------- пинг серверов ----------
+    val pings = MutableStateFlow<Map<String, PingResult>>(emptyMap())
+    /** Короткое сообщение для Snackbar. */
+    val notice = MutableStateFlow<String?>(null)
+    fun clearNotice() { notice.value = null }
+
+    private fun setPing(id: String, r: PingResult) { pings.update { it + (id to r) } }
+
+    fun pingProfile(p: Profile) {
+        viewModelScope.launch {
+            setPing(p.id, PingResult.Testing)
+            setPing(p.id, Pinger.ping(p))
+        }
+    }
+
+    private suspend fun pingBatch(list: List<Profile>) = coroutineScope {
+        list.forEach { setPing(it.id, PingResult.Testing) }
+        val gate = Semaphore(8)
+        list.map { p -> async { gate.withPermit { setPing(p.id, Pinger.ping(p)) } } }.awaitAll()
+    }
+
+    fun pingMany(list: List<Profile>) {
+        if (list.isNotEmpty()) viewModelScope.launch { pingBatch(list) }
+    }
+
+    fun pingAll() = pingMany(profiles.value)
+
+    /** Проверяет все серверы и выбирает с наименьшим пингом. */
+    fun pickBest() {
+        viewModelScope.launch {
+            val all = profiles.value
+            if (all.isEmpty()) return@launch
+            pingBatch(all)
+            val best = all.mapNotNull { p -> (pings.value[p.id] as? PingResult.Ok)?.let { p to it.ms } }
+                .minByOrNull { it.second }
+            if (best != null) {
+                store.select(best.first.id)
+                notice.value = "Выбран «${best.first.name}» · ${best.second} мс"
+            } else {
+                notice.value = "Ни один сервер не ответил"
+            }
+        }
     }
 
     val subscriptions = store.subscriptions.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
