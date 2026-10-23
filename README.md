@@ -13,10 +13,10 @@ Material You, подписки, пинг серверов и плитка в ш�
 </div>
 
 <p align="center">
-  <img src="docs/home.png" width="23%" alt="Главный экран" />
-  <img src="docs/stats.png" width="23%" alt="Статистика трафика" />
-  <img src="docs/servers.png" width="23%" alt="Список серверов" />
-  <img src="docs/settings.png" width="23%" alt="Настройки" />
+  <img src="home.png" width="23%" alt="Главный экран" />
+  <img src="stats.png" width="23%" alt="Статистика трафика" />
+  <img src="servers.png" width="23%" alt="Список серверов" />
+  <img src="settings.png" width="23%" alt="Настройки" />
 </p>
 
 ## О проекте
@@ -94,7 +94,7 @@ Xray запускается отдельным процессом из офиц�
 **Требования:** Android Studio Ladybug или новее, JDK 17, Android SDK, `curl`, `unzip`. Для AmneziaWG дополнительно `git`, `make`, `flock` и интернет (скачивается Go-тулчейн).
 
 ```bash
-git clone https://github.com/<your-username>/hollow.vpn.git
+git clone https://github.com/slowenjoyshow/hollow.vpn.git
 cd hollow.vpn
 
 # 1. hev-socks5-tunnel (AAR) и Xray-core для arm64-v8a и x86_64
