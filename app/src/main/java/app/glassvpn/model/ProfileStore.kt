@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -17,17 +20,19 @@ class ProfileStore(private val context: Context) {
     private val PROFILES = stringPreferencesKey("profiles")
     private val SELECTED = stringPreferencesKey("selected")
 
-    val profiles: Flow<List<Profile>> = context.store.data.map { p ->
-        p[PROFILES]?.let { runCatching { json.decodeFromString(listSer, it) }.getOrNull() } ?: emptyList()
-    }
-    val selectedId: Flow<String?> = context.store.data.map { it[SELECTED] }
+    // stateIn(viewModelScope) собирает потоки на Main: без flowOn разбор JSON всех серверов шёл бы в UI-потоке.
+    // distinctUntilChanged по сырой строке: выбор сервера или правка подписки не заставляют перепарсивать лишнее.
+    val profiles: Flow<List<Profile>> = context.store.data.map { it[PROFILES] }.distinctUntilChanged()
+        .map { raw -> raw?.let { runCatching { json.decodeFromString(listSer, it) }.getOrNull() } ?: emptyList() }
+        .flowOn(Dispatchers.Default)
+    val selectedId: Flow<String?> = context.store.data.map { it[SELECTED] }.distinctUntilChanged()
 
     private val SUBS = stringPreferencesKey("subscriptions")
     private val subSer = ListSerializer(Subscription.serializer())
 
-    val subscriptions: Flow<List<Subscription>> = context.store.data.map { p ->
-        p[SUBS]?.let { runCatching { json.decodeFromString(subSer, it) }.getOrNull() } ?: emptyList()
-    }
+    val subscriptions: Flow<List<Subscription>> = context.store.data.map { it[SUBS] }.distinctUntilChanged()
+        .map { raw -> raw?.let { runCatching { json.decodeFromString(subSer, it) }.getOrNull() } ?: emptyList() }
+        .flowOn(Dispatchers.Default)
 
     /**
      * Добавляет подписку или обновляет существующую (по url): старые профили этой подписки заменяются новыми.

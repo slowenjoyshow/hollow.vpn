@@ -186,7 +186,7 @@ class AwgEngine : VpnEngine {
     override suspend fun start(profile: Profile, ctx: EngineContext) {
         val p = profile as? AwgProfile ?: error("AwgEngine: неподдерживаемый профиль")
         val b = AwgBackend(ctx.context).also { backend = it }
-        b.up(p.rawConf)
+        b.up(SplitTunnel.patchAwgConf(p.rawConf, ctx.settings))
     }
 
     override suspend fun stop() {

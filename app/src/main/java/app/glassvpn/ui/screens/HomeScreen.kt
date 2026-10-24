@@ -392,12 +392,9 @@ private fun StatusPill(state: VpnState) {
 }
 
 /** Большая кнопка: форма «перетекает» из круга в скруглённый квадрат, вокруг расходятся кольца. */
+/** Расходящиеся кольца. Бесконечная анимация живёт только пока VPN подключается или работает, в покое кадры не тратятся. */
 @Composable
-private fun ConnectButton(state: VpnState, enabled: Boolean, onClick: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val connected = state == VpnState.Connected
-    val connecting = state == VpnState.Connecting
-
+private fun PulseRings(connecting: Boolean, ringColor: Color) {
     val infinite = rememberInfiniteTransition(label = "rings")
     val phase by infinite.animateFloat(
         initialValue = 0f,
@@ -405,6 +402,27 @@ private fun ConnectButton(state: VpnState, enabled: Boolean, onClick: () -> Unit
         animationSpec = infiniteRepeatable(tween(if (connecting) 1400 else 3400, easing = LinearEasing)),
         label = "phase",
     )
+    Canvas(Modifier.fillMaxSize()) {
+        val inner = size.minDimension * 0.33f
+        val outer = size.minDimension * 0.5f
+        for (i in 0 until 3) {
+            val p = (phase + i / 3f) % 1f
+            drawCircle(
+                color = ringColor.copy(alpha = (1f - p) * (if (connecting) 0.45f else 0.30f)),
+                radius = inner + (outer - inner) * p,
+                center = center,
+                style = Stroke(width = 3f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConnectButton(state: VpnState, enabled: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val connected = state == VpnState.Connected
+    val connecting = state == VpnState.Connecting
+
     val corner by animateIntAsState(
         when (state) {
             VpnState.Connected -> 30
@@ -441,21 +459,7 @@ private fun ConnectButton(state: VpnState, enabled: Boolean, onClick: () -> Unit
     val ringColor = cs.primary
 
     Box(Modifier.size(236.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            if (connected || connecting) {
-                val inner = size.minDimension * 0.33f
-                val outer = size.minDimension * 0.5f
-                for (i in 0 until 3) {
-                    val p = (phase + i / 3f) % 1f
-                    drawCircle(
-                        color = ringColor.copy(alpha = (1f - p) * (if (connecting) 0.45f else 0.30f)),
-                        radius = inner + (outer - inner) * p,
-                        center = center,
-                        style = Stroke(width = 3f),
-                    )
-                }
-            }
-        }
+        if (connected || connecting) PulseRings(connecting, ringColor)
         Box(
             Modifier
                 .size(152.dp)

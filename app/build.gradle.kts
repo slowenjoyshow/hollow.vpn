@@ -21,6 +21,9 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
+            // Чтобы `assembleRelease` давал сразу устанавливаемый APK; для публикации подставь свой keystore.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -51,6 +54,8 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    // Применяет baseline-профили Compose при установке вне Play: без него первый запуск идёт на интерпретаторе
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
 
     // ---- Нативные ядра ----

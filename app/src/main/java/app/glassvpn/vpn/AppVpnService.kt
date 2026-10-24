@@ -57,6 +57,7 @@ class AppVpnService : VpnService() {
                 val profile: Profile = store.profiles.first().firstOrNull { it.id == id }
                     ?: error("Профиль не выбран")
                 val settings = SettingsStore(applicationContext).settings.first()
+                SplitTunnel.validate(settings)
                 val e = engineFor(profile).also { engine = it }
                 e.start(
                     profile,
@@ -94,7 +95,7 @@ class AppVpnService : VpnService() {
         addDnsServer(s.remoteDns)
         addDnsServer("8.8.8.8")
         setBlocking(false)
-        addDisallowedApplication(packageName)   // сам клиент ходит напрямую
+        SplitTunnel.configure(this, s, packageName)   // сам клиент ходит напрямую + раздельное туннелирование
     }.establish()
 
     private fun disconnect() {

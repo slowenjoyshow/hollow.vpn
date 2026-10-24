@@ -3,6 +3,7 @@
 # и кладёт AAR в app/libs/amneziawg-tunnel.aar. Запускать из корня проекта.
 # Нужны: git, JDK 17+, Android SDK (NDK gradle докачает сам), make, flock, интернет (качается Go-тулчейн).
 set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."   # корень проекта, даже если скрипт запущен из scripts/
 TAG="${AWG_TAG:-v3.1.20260814}"
 ROOT="$(pwd)"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT

@@ -1,5 +1,9 @@
 -keep class kotlinx.serialization.** { *; }
 -keepclassmembers class app.glassvpn.model.** { *; }
-# Нативные ядра (раскомментируй при подключении)
-# -keep class libXray.** { *; }
-# -keep class org.amnezia.awg.** { *; }
+
+# AmneziaWG вызывается через рефлексию (AwgBackend), без этих правил R8 вырежет классы из релизной сборки
+-keep class org.amnezia.awg.** { *; }
+-dontwarn org.amnezia.awg.**
+
+# hev-socks5-tunnel: JNI-методы привязаны к имени класса
+-keep class hev.htproxy.** { *; }

@@ -8,13 +8,21 @@ import kotlinx.serialization.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Какой User-Agent отправлять панели подписки. Многие панели отвечают «app not supported» на незнакомые клиенты. */
+/**
+ * Какой User-Agent отправлять панели подписки. По умолчанию приложение представляется как hollow.vpn,
+ * а если панель отвечает «app not supported», по очереди пробуются совместимые идентификаторы Happ, v2rayNG и v2RayTun.
+ * Для Hollow значение собирается на лету ([hollowUserAgent]), для Custom берётся из настроек.
+ */
 enum class SubUserAgent(val label: String, val value: String) {
-    V2rayNG("v2rayNG", "v2rayNG/1.10.16"),
+    Hollow("hollow.vpn", ""),
     Happ("Happ", "Happ/2.7.0"),
+    V2rayNG("v2rayNG", "v2rayNG/1.10.16"),
     V2rayTun("v2RayTun", "v2raytun/ios"),
     Custom("Свой", ""),
 }
+
+/** Собственный User-Agent клиента: hollow.vpn/<версия> (Android <версия ОС>). */
+fun hollowUserAgent(appVersion: String) = "hollow.vpn/$appVersion (Android ${Build.VERSION.RELEASE ?: ""})".trim()
 
 /** Сохранённая подписка: по ссылке её можно обновлять. */
 @Serializable
@@ -39,13 +47,15 @@ data class FetchResult(
 object SubscriptionFetcher {
 
     /**
-     * Пробует User-Agent по очереди (сначала выбранный пользователем), пока ответ не пройдёт [validate].
-     * Так «app not supported» обходится автоматически. Заглушки панели («Happ включит HWID…») отсеиваются.
+     * Пробует User-Agent по очереди: сначала выбранный пользователем (по умолчанию свой hollow.vpn),
+     * затем остальные совместимые, пока ответ не пройдёт [validate].
+     * Так «app not supported» обходится автоматически. Заглушки панели («включите HWID», «лимит устройств») отсеиваются.
      */
     suspend fun fetch(
         url: String,
         hwid: String,
-        preferred: SubUserAgent = SubUserAgent.V2rayNG,
+        appVersion: String,
+        preferred: SubUserAgent = SubUserAgent.Hollow,
         customUa: String = "",
         validate: (String) -> Result<*> = { Result.success(Unit) },
     ): Result<FetchResult> = withContext(Dispatchers.IO) {
@@ -53,11 +63,12 @@ object SubscriptionFetcher {
             require(url.startsWith("https://", ignoreCase = true)) {
                 "Подписка должна быть по https:// (http-ссылки отключены из соображений безопасности)"
             }
-            val agents = buildList {
-                if (preferred == SubUserAgent.Custom && customUa.isNotBlank()) add(customUa.trim())
-                else if (preferred != SubUserAgent.Custom) add(preferred.value)
-                SubUserAgent.entries.filter { it != SubUserAgent.Custom }.forEach { add(it.value) }
-            }.distinct()
+            fun uaOf(a: SubUserAgent): String? = when (a) {
+                SubUserAgent.Hollow -> hollowUserAgent(appVersion)
+                SubUserAgent.Custom -> customUa.trim().ifEmpty { null }
+                else -> a.value
+            }
+            val agents = (listOf(preferred) + SubUserAgent.entries).mapNotNull(::uaOf).distinct()
 
             var lastError: Throwable? = null
             for (ua in agents) {

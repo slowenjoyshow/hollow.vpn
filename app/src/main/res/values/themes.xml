@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.GlassVPN" parent="android:Theme.Material.NoActionBar">
+    <!-- Светлая системная тема: фон окна и системный сплэш светлые, без чёрной вспышки. Тёмный вариант в values-night. -->
+    <style name="Theme.GlassVPN" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowTranslucentStatus">false</item>
-        <item name="android:windowBackground">@android:color/black</item>
     </style>
 </resources>

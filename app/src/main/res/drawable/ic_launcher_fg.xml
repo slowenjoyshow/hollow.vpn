@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Арт уменьшается до безопасной зоны адаптивной иконки, иначе маска лаунчера
-     обрезает края и композиция выглядит «приближенной». -->
+<!-- Адаптивная иконка: холст 108dp, лаунчер показывает центральные ~72dp (круг, «квадрат со скруглением» и т.д.)
+     и может сдвигать слой при параллаксе. Арт полностью непрозрачный, поэтому он обязан перекрывать всю видимую
+     зону с запасом. Отступ 10% даёт арт 86dp > 72dp: края не видны ни в одной маске, а композиция «hw» целиком в кадре.
+     Прежние 20% давали арт 65dp < 72dp, и вокруг него просвечивала тёмная подложка. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/ic_launcher_art"
-    android:insetLeft="20%"
-    android:insetTop="20%"
-    android:insetRight="20%"
-    android:insetBottom="20%" />
+    android:insetLeft="10%"
+    android:insetTop="10%"
+    android:insetRight="10%"
+    android:insetBottom="10%" />

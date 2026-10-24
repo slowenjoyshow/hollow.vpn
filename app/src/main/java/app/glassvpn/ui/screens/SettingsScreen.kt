@@ -9,6 +9,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +43,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.glassvpn.model.Accent
 import app.glassvpn.model.BackgroundStyle
+import app.glassvpn.model.SplitMode
 import app.glassvpn.model.SubUserAgent
 import app.glassvpn.model.ThemeMode
 import app.glassvpn.ui.MainViewModel
@@ -186,6 +192,60 @@ fun SettingsScreen(vm: MainViewModel) {
             }
         }
 
+        Section("Раздельное туннелирование") {
+            var pickApps by remember { mutableStateOf(false) }
+            val modes = SplitMode.entries
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                modes.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = settings.splitMode == mode,
+                        onClick = { vm.updateSettings { it.copy(splitMode = mode) } },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                    ) {
+                        Text(
+                            when (mode) {
+                                SplitMode.Off -> "Выкл"
+                                SplitMode.Exclude -> "Обход"
+                                SplitMode.Only -> "Только"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                when (settings.splitMode) {
+                    SplitMode.Off -> "Весь трафик телефона идёт через VPN."
+                    SplitMode.Exclude -> "Выбранные приложения ходят напрямую, мимо VPN. Остальные работают через него."
+                    SplitMode.Only -> "Через VPN ходят только выбранные приложения. Остальные работают напрямую."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+            if (settings.splitMode != SplitMode.Off) {
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(onClick = { pickApps = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (settings.splitApps.isEmpty()) "Выбрать приложения" else "Приложения: ${settings.splitApps.size}")
+                }
+                if (settings.splitMode == SplitMode.Only && settings.splitApps.isEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Выбери хотя бы одно приложение, иначе подключиться не получится.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = cs.error,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Изменения применяются при следующем подключении.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            if (pickApps) SplitTunnelSheet(vm) { pickApps = false }
+        }
+
         Section("Серверы") {
             SwitchRow(
                 "Проверять пинг при открытии",
@@ -203,12 +263,15 @@ fun SettingsScreen(vm: MainViewModel) {
 
         Section("Подписки") {
             Text(
-                "Если сервер пишет «app not supported», выбери другой клиент. Остальные пробуются автоматически.",
+                "По умолчанию приложение представляется панели как hollow.vpn/${vm.appVersion}. Если сервер пишет «app not supported», выбери Happ, v2rayNG или v2RayTun, остальные пробуются автоматически.",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),   // 5 чипов не помещаются в ширину экрана
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 SubUserAgent.entries.forEach { ua ->
                     FilterChip(
                         selected = settings.subUserAgent == ua,

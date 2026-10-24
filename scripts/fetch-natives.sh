@@ -2,6 +2,7 @@
 # Скачивает нативные ядра: hev-socks5-tunnel (AAR) и Xray-core (бинарник + geo-базы).
 # Нужны curl и unzip. Запускать из корня проекта.
 set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."   # корень проекта, даже если скрипт запущен из scripts/
 HEV_TAG="${HEV_TAG:-}"   # пусто = последний релиз (AAR появился только в 2.18.0)
 
 asset_url() {  # $1 = api url, $2 = regex имени файла

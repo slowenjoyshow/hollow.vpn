@@ -12,7 +12,9 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.glassvpn.model.AppEntry
 import app.glassvpn.model.AppSettings
+import app.glassvpn.model.InstalledApps
 import app.glassvpn.model.DeviceId
 import app.glassvpn.model.Subscription
 import app.glassvpn.model.parseSubscription
@@ -27,7 +29,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -48,11 +52,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val selected: StateFlow<Profile?> = combine(profiles, selectedId) { l, id -> l.firstOrNull { it.id == id } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val settings = settingsStore.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
+    // Один раз читаем маленький файл настроек синхронно: первый кадр сразу рисуется с настоящей темой,
+    // а не с настройками по умолчанию с последующей перерисовкой всего экрана (это и было заметным «лагом» на старте).
+    val settings = settingsStore.settings.stateIn(
+        viewModelScope, SharingStarted.Eagerly, runBlocking { settingsStore.settings.first() },
+    )
     val importState = MutableStateFlow<ImportState>(ImportState.Idle)
 
     fun updateSettings(transform: (AppSettings) -> AppSettings) {
         viewModelScope.launch { settingsStore.update(transform) }
+    }
+
+    /** Список приложений для раздельного туннелирования; null, пока не загружен. */
+    val installedApps = MutableStateFlow<List<AppEntry>?>(null)
+
+    fun loadInstalledApps() {
+        if (installedApps.value != null) return
+        viewModelScope.launch { installedApps.value = InstalledApps.load(appContext) }
     }
 
     /** Ссылка, список ссылок, base64-подписка, JSON или конфиг AmneziaWG. */
@@ -141,12 +157,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val subscriptions = store.subscriptions.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val refreshing = MutableStateFlow(false)
-    val hwid: String = DeviceId.get(app)
+    val hwid: String by lazy { DeviceId.get(app) }
+    val appVersion: String by lazy {
+        runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull() ?: "0"
+    }
 
     /** Скачивает подписку и сохраняет (или обновляет) её вместе с профилями. Возвращает число серверов. */
     private suspend fun fetchSubscription(url: String): Result<Pair<Int, String>> {
         val s = settings.value
-        return SubscriptionFetcher.fetch(url, hwid, s.subUserAgent, s.customUserAgent, ::parseSubscription)
+        return SubscriptionFetcher.fetch(url, hwid, appVersion, s.subUserAgent, s.customUserAgent, ::parseSubscription)
             .mapCatching { res ->
                 val report = parseSubscriptionReport(res.body).getOrThrow()
                 val fresh = report.profiles

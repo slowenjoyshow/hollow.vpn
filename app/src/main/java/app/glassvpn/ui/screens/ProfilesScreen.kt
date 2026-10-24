@@ -106,7 +106,6 @@ fun ProfilesScreen(vm: MainViewModel) {
     val subs by vm.subscriptions.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     var sheet by remember { mutableStateOf(false) }
-    val collapsed = remember { mutableStateMapOf<String, Boolean>() }
     val pings by vm.pings.collectAsState()
     val settings by vm.settings.collectAsState()
     LaunchedEffect(settings.autoPing, profiles.size) {
@@ -197,7 +196,7 @@ fun ProfilesScreen(vm: MainViewModel) {
                 ) {
                     groups.forEach { g ->
                         val showHeader = g.isSub || groups.size > 1
-                        val open = collapsed[g.id] != true
+                        val open = g.id !in settings.collapsedGroups
                         if (showHeader) {
                             item(key = "h-${g.id}") {
                                 GroupHeader(
@@ -205,7 +204,11 @@ fun ProfilesScreen(vm: MainViewModel) {
                                     count = g.items.size,
                                     note = g.note,
                                     expanded = open,
-                                    onToggle = { collapsed[g.id] = open },
+                                    onToggle = {
+                                        vm.updateSettings {
+                                            it.copy(collapsedGroups = if (open) it.collapsedGroups + g.id else it.collapsedGroups - g.id)
+                                        }
+                                    },
                                     onPing = { vm.pingMany(g.items) },
                                     onDelete = if (g.isSub) ({ vm.removeSubscription(g.id) }) else null,
                                     modifier = Modifier.animateItem(),
